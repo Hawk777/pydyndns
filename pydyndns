@@ -3,9 +3,7 @@
 import logging
 import logging.handlers
 import netifaces
-import os
 import socket
-import subprocess
 import sys
 
 import dns.name
