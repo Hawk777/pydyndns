@@ -89,5 +89,7 @@ if __name__ == "__main__":
                 fp.write("\n")
                 fp.write(address)
                 fp.write("\n")
+    except (KeyboardInterrupt, SystemExit):
+        raise
     except:
         logging.error("Unhandled exception", exc_info=True)
