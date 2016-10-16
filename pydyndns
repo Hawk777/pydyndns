@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
+import argparse
+import json
 import logging
+import logging.config
 import logging.handlers
 import netifaces
 import socket
@@ -29,65 +32,89 @@ def is_global(addr):
     return True
 
 
-if __name__ == "__main__":
-    try:
-        # Configure logging.
-        logging.basicConfig(level=logging.DEBUG, handlers=[logging.handlers.SysLogHandler(address="/dev/log", facility=logging.handlers.SysLogHandler.LOG_LOCAL0)])
+def run(interface, config, logger):
+    # Rip apart my hostname.
+    fqdn = dns.name.from_text(socket.getfqdn())
+    zone = fqdn.parent()
+    hostPart = fqdn.relativize(zone)
 
-        # Rip apart my hostname.
-        fqdn = dns.name.from_text(socket.getfqdn())
-        zone = fqdn.parent()
-        hostPart = fqdn.relativize(zone)
+    # Find which nameserver we should talk to using an SOA query.
+    resp = dns.resolver.query(zone, dns.rdatatype.SOA)
+    if len(resp.rrset) != 1:
+        raise RuntimeError("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
+    server = resp.rrset[0].mname.to_text(omit_final_dot=True)
+    logger.debug("Using nameserver {}.".format(server))
 
-        # Find which nameserver we should talk to using an SOA query.
-        resp = dns.resolver.query(zone, dns.rdatatype.SOA)
-        if len(resp.rrset) != 1:
-            raise RuntimeError("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
-        server = resp.rrset[0].mname.to_text(omit_final_dot=True)
-        logging.debug("Using nameserver {}.".format(server))
+    # Find my address.
+    addresses = netifaces.ifaddresses(args.interface)[netifaces.AF_INET6]
+    addresses = [addr["addr"] for addr in addresses if is_global(addr["addr"])]
+    if len(addresses) == 0:
+        logger.warn("No IPv6 addresses on interface {}.".format(args.interface))
+        address = None
+    elif len(addresses) == 1:
+        address = addresses[0]
+    else:
+        logger.warning("Multiple IPv6 addresses on interface {}: {}".format(args.interface, addresses))
+        address = addresses[0]
 
-        # Find my address.
-        addresses = netifaces.ifaddresses(sys.argv[1])[netifaces.AF_INET6]
-        addresses = [addr["addr"] for addr in addresses if is_global(addr["addr"])]
-        if len(addresses) == 0:
-            logging.warn("No IPv6 addresses on interface {}.".format(sys.argv[1]))
-            address = None
-        elif len(addresses) == 1:
-            address = addresses[0]
-        else:
-            logging.warning("Multiple IPv6 addresses on interface {}: {}".format(sys.argv[1], addresses))
-            address = addresses[0]
-
-        # Get the hostname and address most recently sent from the cache file.
+    # Get the hostname and address most recently sent from the cache file.
+    if "cache" in config:
         try:
-            with open("/run/pydyndns") as fp:
+            with open(config["cache"], "r") as fp:
                 last_hostname = fp.readline().rstrip("\n")
                 last_address = fp.readline().rstrip("\n")
         except:
             last_hostname = None
             last_address = None
+    else:
+        last_hostname = None
+        last_address = None
 
-        # Check if the current hostname and address are the same as the last
-        # one.
-        if fqdn.to_text() == last_hostname and address == last_address:
-            logging.info("Eliding DNS record update for {} to {} as cache says address has not changed.".format(fqdn, address))
-        else:
-            # Issue the update.
-            logging.info("Updating DNS record for {} to {}.".format(fqdn, address))
-            update = dns.update.Update(zone)
-            update.delete(hostPart)
-            update.add(hostPart, 300, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
-            resp = dns.query.tcp(update, server)
-            if resp.rcode() != dns.rcode.NOERROR:
-                raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
+    # Check if the current hostname and address are the same as the last
+    # one.
+    if fqdn.to_text() == last_hostname and address == last_address:
+        logger.info("Eliding DNS record update for {} to {} as cache says address has not changed.".format(fqdn, address))
+    else:
+        # Issue the update.
+        logger.info("Updating DNS record for {} to {}.".format(fqdn, address))
+        update = dns.update.Update(zone)
+        update.delete(hostPart)
+        update.add(hostPart, 300, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+        resp = dns.query.tcp(update, server)
+        if resp.rcode() != dns.rcode.NOERROR:
+            raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
 
-            # Update the cache to remember that we did this.
-            with open("/run/pydyndns", "w") as fp:
+        # Update the cache to remember that we did this.
+        if "cache" in config:
+            with open(config["cache"], "w") as fp:
                 fp.write(fqdn.to_text())
                 fp.write("\n")
                 fp.write(address)
                 fp.write("\n")
+
+
+if __name__ == "__main__":
+    # Parse command-line arguments.
+    parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
+    parser.add_argument("-c", "--config", default="/etc/pydyndns.conf", type=str, help="which configuration file to read (default: /etc/pydyndns.conf)", metavar="FILE")
+    parser.add_argument("interface", help="the name of the interface whose address to register")
+    args = parser.parse_args()
+
+    # Load configuration file.
+    with open(args.config, "r") as configFile:
+        config = json.load(configFile)
+
+    # Configure logging.
+    if "logging" in config:
+        logging.config.dictConfig(config["logging"])
+    else:
+        logging.basicConfig(level=logging.DEBUG)
+        logging.warn("No logging section in config file.")
+
+    # Run the program.
+    try:
+        run(args.interface, config, logging.getLogger("pydyndns"))
     except (KeyboardInterrupt, SystemExit):
         raise
     except:
-        logging.error("Unhandled exception", exc_info=True)
+        logging.getLogger("pydyndns").error("Unhandled exception", exc_info=True)

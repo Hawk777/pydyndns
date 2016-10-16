@@ -21,13 +21,33 @@ as follows:
 Usage
 =====
 
-PyDynDNS can be invoked from the command line. It accepts a single parameter
-which is the name of the network interface whose information should be
-registered. For example, you might run `pydyndns enp3s0` to register your
-Ethernet interface’s address.
+PyDynDNS can be invoked from the command line. It uses standard command-line
+option parsing and understand the `-h` and `--help` options to display usage
+information.
 
-The computer’s current hostname is used as the name to register. The SOA record
-associated with that hostname is used to find the primary authoritative
-nameserver to which updates are sent. Each update deletes all records
-associated with the hostname then registers a new AAAA record for the host’s
-IPv6 address.
+The name to register is taken from the computer’s current hostname. The address
+to register is taken from a network interface, which is passed on the command
+line. The server to talk to is taken from the SOA record covering the
+computer’s hostname. Each update deletes all records associated with the
+hostname then registers a new AAAA record for the host’s IPv6 address.
+
+
+
+Configuration File
+==================
+
+PyDynDNS uses a JSON-formatted configuration file. The top-level configuration
+file must be a JSON object with the following keys:
+* cache (optional, string): The name of the cache file. PyDynDNS writes into
+  this file each time it performs an update. When invoked, it first checks the
+  cache file to decide whether an update needs to be performed; if no data has
+  changed compared to the cache file, the update is skipped. On a single-OS
+  computer, this file can be stored anywhere. On a multi-OS computer, this file
+  should probably be stored somewhere that is destroyed on reboot, so that any
+  registration changes made while other OSes are booted will be overwritten. If
+  omitted, no cache file is used and every invocation results in an update
+  being sent.
+* logging (required, object): A logging configuration, as described by the
+  Python logging configuration dictionary schema at
+  <https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>.
+  Note that a logger named `pydyndns` is used for all output.
