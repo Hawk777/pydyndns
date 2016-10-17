@@ -33,6 +33,9 @@ def is_global(addr):
 
 
 def run(interface, config, logger):
+    # Grab the TTL from the config file.
+    ttl = int(config["ttl"])
+
     # Rip apart my hostname.
     fqdn = dns.name.from_text(socket.getfqdn())
     zone = fqdn.parent()
@@ -79,7 +82,7 @@ def run(interface, config, logger):
         logger.info("Updating DNS record for {} to {}.".format(fqdn, address))
         update = dns.update.Update(zone)
         update.delete(hostPart)
-        update.add(hostPart, 300, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+        update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
         resp = dns.query.tcp(update, server)
         if resp.rcode() != dns.rcode.NOERROR:
             raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))

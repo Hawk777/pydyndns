@@ -51,3 +51,4 @@ file must be a JSON object with the following keys:
   Python logging configuration dictionary schema at
   <https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>.
   Note that a logger named `pydyndns` is used for all output.
+* ttl (required, number): The time to live for created DNS records, in seconds.
