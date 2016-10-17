@@ -60,36 +60,31 @@ def run(interface, config, logger):
     server = resp.rrset[0].mname.to_text(omit_final_dot=True)
     logger.debug("Using nameserver {}.".format(server))
 
-    # Find my address.
+    # Find my addresses.
     addresses = netifaces.ifaddresses(args.interface)[netifaces.AF_INET6]
     addresses = [addr["addr"] for addr in addresses if is_global(addr["addr"])]
+    addresses.sort()
     if len(addresses) == 0:
         logger.warn("No IPv6 addresses on interface {}.".format(args.interface))
-        address = None
-    elif len(addresses) == 1:
-        address = addresses[0]
-    else:
-        logger.warning("Multiple IPv6 addresses on interface {}: {}".format(args.interface, addresses))
-        address = addresses[0]
 
-    # Get the hostname and address most recently sent from the cache.
+    # Get the hostname and addresses most recently sent from the cache.
     if cache:
         last_hostname = cache.get("hostname")
-        last_address = cache.get("address")
+        last_addresses = cache.get("addresses")
     else:
         last_hostname = None
-        last_address = None
+        last_addresses = None
 
-    # Check if the current hostname and address are the same as the last
-    # one.
-    if fqdn.to_text() == last_hostname and address == last_address:
-        logger.info("Eliding DNS record update for {} to {} as cache says address has not changed.".format(fqdn, address))
+    # Check if the current hostname and addresses are the same as the last one.
+    if fqdn.to_text() == last_hostname and addresses == last_addresses:
+        logger.info("Eliding DNS record update for {} to {} as cache says addresses have not changed.".format(fqdn, addresses))
     else:
         # Issue the update.
-        logger.info("Updating DNS record for {} to {}.".format(fqdn, address))
+        logger.info("Updating DNS record for {} to {}.".format(fqdn, addresses))
         update = dns.update.Update(zone)
         update.delete(hostPart)
-        update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+        for address in addresses:
+            update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
         resp = dns.query.tcp(update, server)
         if resp.rcode() != dns.rcode.NOERROR:
             raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
@@ -97,7 +92,7 @@ def run(interface, config, logger):
         # Update the cache to remember that we did this.
         if "cache" in config:
             with open(config["cache"], "w") as cacheFile:
-                json.dump({"hostname": fqdn.to_text(), "address": address}, cacheFile, ensure_ascii=False, allow_nan=False)
+                json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, cacheFile, ensure_ascii=False, allow_nan=False)
 
 
 if __name__ == "__main__":

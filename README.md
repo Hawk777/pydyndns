@@ -25,11 +25,12 @@ PyDynDNS can be invoked from the command line. It uses standard command-line
 option parsing and understand the `-h` and `--help` options to display usage
 information.
 
-The name to register is taken from the computer’s current hostname. The address
-to register is taken from a network interface, which is passed on the command
-line. The server to talk to is taken from the SOA record covering the
-computer’s hostname. Each update deletes all records associated with the
-hostname then registers a new AAAA record for the host’s IPv6 address.
+The name to register is taken from the computer’s current hostname. The
+addresses to register is taken from one or more network interfaces, which are
+passed on the command line. The server to talk to is taken from the SOA record
+covering the computer’s hostname. Each update deletes all records associated
+with the hostname then registers a new AAAA record for each of the host’s IPv6
+addresses.
 
 
 
