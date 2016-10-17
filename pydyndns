@@ -36,6 +36,18 @@ def run(interface, config, logger):
     # Grab the TTL from the config file.
     ttl = int(config["ttl"])
 
+    # Load the cache file, if any.
+    if "cache" in config:
+        try:
+            with open(config["cache"], "r") as cacheFile:
+                cache = json.load(cacheFile)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            cache = None
+    else:
+        cache = None
+
     # Rip apart my hostname.
     fqdn = dns.name.from_text(socket.getfqdn())
     zone = fqdn.parent()
@@ -60,15 +72,10 @@ def run(interface, config, logger):
         logger.warning("Multiple IPv6 addresses on interface {}: {}".format(args.interface, addresses))
         address = addresses[0]
 
-    # Get the hostname and address most recently sent from the cache file.
-    if "cache" in config:
-        try:
-            with open(config["cache"], "r") as fp:
-                last_hostname = fp.readline().rstrip("\n")
-                last_address = fp.readline().rstrip("\n")
-        except:
-            last_hostname = None
-            last_address = None
+    # Get the hostname and address most recently sent from the cache.
+    if cache:
+        last_hostname = cache.get("hostname")
+        last_address = cache.get("address")
     else:
         last_hostname = None
         last_address = None
@@ -89,11 +96,8 @@ def run(interface, config, logger):
 
         # Update the cache to remember that we did this.
         if "cache" in config:
-            with open(config["cache"], "w") as fp:
-                fp.write(fqdn.to_text())
-                fp.write("\n")
-                fp.write(address)
-                fp.write("\n")
+            with open(config["cache"], "w") as cacheFile:
+                json.dump({"hostname": fqdn.to_text(), "address": address}, cacheFile, ensure_ascii=False, allow_nan=False)
 
 
 if __name__ == "__main__":
