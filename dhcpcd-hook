@@ -1,0 +1,10 @@
+#!/bin/bash
+case "${reason}" in
+	INFORM|INFORM6|BOUND|BOUND6|REBIND|REBIND6|REBOOT|REBOOT6|DELEGATED6|IPV4LL|STATIC|ROUTERADVERT|DEPARTED)
+		pydyndns
+		exit $?
+		;;
+	*)
+		exit 0
+		;;
+esac
