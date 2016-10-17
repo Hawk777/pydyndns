@@ -61,11 +61,13 @@ def run(interface, config, logger):
     logger.debug("Using nameserver {}.".format(server))
 
     # Find my addresses.
-    addresses = netifaces.ifaddresses(args.interface)[netifaces.AF_INET6]
-    addresses = [addr["addr"] for addr in addresses if is_global(addr["addr"])]
+    addresses = []
+    for interface in (args.interface or netifaces.interfaces()):
+        ifAddresses = netifaces.ifaddresses(interface).get(netifaces.AF_INET6, [])
+        addresses += (addr["addr"] for addr in ifAddresses if is_global(addr["addr"]))
     addresses.sort()
     if len(addresses) == 0:
-        logger.warn("No IPv6 addresses on interface {}.".format(args.interface))
+        logger.warn("No IPv6 addresses.")
 
     # Get the hostname and addresses most recently sent from the cache.
     if cache:
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
     parser.add_argument("-c", "--config", default="/etc/pydyndns.conf", type=str, help="which configuration file to read (default: /etc/pydyndns.conf)", metavar="FILE")
-    parser.add_argument("interface", help="the name of the interface whose address to register")
+    parser.add_argument("interface", nargs="*", help="the name of an interface whose address(es) to register (default: all interfaces)")
     args = parser.parse_args()
 
     # Load configuration file.
