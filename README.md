@@ -10,7 +10,7 @@ as follows:
 * PyDynDNS uses the DNS protocol to perform dynamic updates. Many commercial
   dynamic DNS providers use HTTP-based update interfaces instead. PyDynDNS does
   not support those interfaces.
-* PyDynDNS will update AAAA records only.
+* PyDynDNS will update A and AAAA records only.
 * PyDynDNS is small and lightweight and is intended to be run from a Cron job
   or DHCP client address-change callback. It is perfectly reasonable to run
   PyDynDNS every minute or so. It will only send updates when changes have been
@@ -29,8 +29,8 @@ The name to register is taken from the computer’s current hostname. The
 addresses to register is taken from one or more network interfaces, which are
 passed on the command line. The server to talk to is taken from the SOA record
 covering the computer’s hostname. Each update deletes all records associated
-with the hostname then registers a new AAAA record for each of the host’s IPv6
-addresses.
+with the hostname then registers a new A or AAAA record for each of the host’s
+IP addresses.
 
 
 
@@ -48,6 +48,8 @@ file must be a JSON object with the following keys:
   registration changes made while other OSes are booted will be overwritten. If
   omitted, no cache file is used and every invocation results in an update
   being sent.
+* ipv4 (required, boolean): Whether or not to register IPv4 (A) records.
+* ipv6 (required, boolean): Whether or not to register IPv6 (AAAA) records.
 * logging (required, object): A logging configuration, as described by the
   Python logging configuration dictionary schema at
   <https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>.

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import abc
 import argparse
 import json
 import logging
@@ -12,27 +13,85 @@ import sys
 import dns.name
 import dns.rdataclass
 import dns.rdatatype
+import dns.rdtypes.IN.A
 import dns.rdtypes.IN.AAAA
 import dns.resolver
 import dns.update
 
 
-def is_global(addr):
-    first_word = int(addr.split(":")[0] or "0", 16)
-    if first_word == 0x0000:
-        return False # Unspecified, local, or IPv6-mapped address
-    elif first_word == 0x0100:
-        return False # Discard address
-    elif (first_word & 0xFE00) == 0xFC00:
-        return False # Unique local address
-    elif first_word == 0xFE80:
-        return False # Link-local address
-    elif (first_word & 0xFF00) == 0xFF00:
-        return False # Multicast address
-    return True
+class Family(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def getName(self):
+        pass
+
+    @abc.abstractmethod
+    def getNetIFacesConstant(self):
+        pass
+
+    @abc.abstractmethod
+    def addAddressToUpdate(self, update, hostPart, ttl, address):
+        pass
+
+    @abc.abstractmethod
+    def includeAddress(self, address):
+        pass
+
+
+class IPv4(Family):
+    def getName(self):
+        return "ipv4"
+
+    def getNetIFacesConstant(self):
+        return netifaces.AF_INET
+
+    def addAddressToUpdate(self, update, hostPart, ttl, address):
+        update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, address))
+
+    def includeAddress(self, address):
+        parts = [int(part) for part in address.split(".")]
+        if parts[0] == 127:
+            return False # Loopback address
+        elif parts[0] >= 240:
+            return False # Multicast or reserved address
+        return True
+
+
+class IPv6(Family):
+    def getName(self):
+        return "ipv6"
+
+    def getNetIFacesConstant(self):
+        return netifaces.AF_INET6
+
+    def addAddressToUpdate(self, update, hostPart, ttl, address):
+        update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+
+    def includeAddress(self, address):
+        first_word = int(address.split(":")[0] or "0", 16)
+        if first_word == 0x0000:
+            return False # Unspecified, local, or IPv6-mapped address
+        elif first_word == 0x0100:
+            return False # Discard address
+        elif (first_word & 0xFE00) == 0xFC00:
+            return False # Unique local address
+        elif first_word == 0xFE80:
+            return False # Link-local address
+        elif (first_word & 0xFF00) == 0xFF00:
+            return False # Multicast address
+        return True
 
 
 def run(interface, config, logger):
+    # Decide which families to use.
+    families = []
+    if config["ipv4"]:
+        families.append(IPv4())
+    if config["ipv6"]:
+        families.append(IPv6())
+    if not families:
+        logger.error("No address families are enabled.")
+        return
+
     # Grab the TTL from the config file.
     ttl = int(config["ttl"])
 
@@ -61,13 +120,13 @@ def run(interface, config, logger):
     logger.debug("Using nameserver {}.".format(server))
 
     # Find my addresses.
-    addresses = []
+    addresses = {family.getName(): [] for family in families}
     for interface in (args.interface or netifaces.interfaces()):
-        ifAddresses = netifaces.ifaddresses(interface).get(netifaces.AF_INET6, [])
-        addresses += (addr["addr"] for addr in ifAddresses if is_global(addr["addr"]))
-    addresses.sort()
-    if len(addresses) == 0:
-        logger.warn("No IPv6 addresses.")
+        for family in families:
+            ifAddresses = netifaces.ifaddresses(interface).get(family.getNetIFacesConstant(), [])
+            addresses[family.getName()] += (addr["addr"] for addr in ifAddresses if family.includeAddress(addr["addr"]))
+    for family in families:
+        addresses[family.getName()].sort()
 
     # Get the hostname and addresses most recently sent from the cache.
     if cache:
@@ -85,8 +144,9 @@ def run(interface, config, logger):
         logger.info("Updating DNS record for {} to {}.".format(fqdn, addresses))
         update = dns.update.Update(zone)
         update.delete(hostPart)
-        for address in addresses:
-            update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+        for family in families:
+            for address in addresses[family.getName()]:
+                family.addAddressToUpdate(update, hostPart, ttl, address)
         resp = dns.query.tcp(update, server)
         if resp.rcode() != dns.rcode.NOERROR:
             raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
