@@ -117,7 +117,7 @@ class IPv6(Family):
         return True
 
 
-def run(interface, config, logger):
+def run(args, config, logger):
     # Decide which families to use.
     families = []
     if config["ipv4"]:
@@ -173,7 +173,7 @@ def run(interface, config, logger):
         last_addresses = None
 
     # Check if the current hostname and addresses are the same as the last one.
-    if fqdn.to_text() == last_hostname and addresses == last_addresses:
+    if fqdn.to_text() == last_hostname and addresses == last_addresses and not args.force:
         logger.info("Eliding DNS record update for {} to {} as cache says addresses have not changed.".format(fqdn, addresses))
     else:
         # Issue the update.
@@ -197,6 +197,7 @@ if __name__ == "__main__":
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
     parser.add_argument("-c", "--config", default="/etc/pydyndns.conf", type=str, help="which configuration file to read (default: /etc/pydyndns.conf)", metavar="FILE")
+    parser.add_argument("-f", "--force", action="store_true", help="update even if cache says unnecessary")
     parser.add_argument("interface", nargs="*", help="the name of an interface whose address(es) to register (default: all interfaces)")
     args = parser.parse_args()
 
@@ -213,7 +214,7 @@ if __name__ == "__main__":
 
     # Run the program.
     try:
-        run(args.interface, config, logging.getLogger("pydyndns"))
+        run(args, config, logging.getLogger("pydyndns"))
     except (KeyboardInterrupt, SystemExit):
         raise
     except:
