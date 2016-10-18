@@ -49,9 +49,17 @@ file must be a JSON object with the following keys:
   omitted, no cache file is used and every invocation results in an update
   being sent.
 * ipv4 (required, boolean): Whether or not to register IPv4 (A) records.
-* ipv6 (required, boolean): Whether or not to register IPv6 (AAAA) records.
+* ipv6 (required, object): Configuration regarding IPv6; see below.
 * logging (required, object): A logging configuration, as described by the
   Python logging configuration dictionary schema at
   <https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>.
   Note that a logger named `pydyndns` is used for all output.
 * ttl (required, number): The time to live for created DNS records, in seconds.
+
+
+ipv6 object
+-----------
+
+The ipv6 object contains the following keys:
+* enable (required, boolean): Whether or not to register IPv6 (AAAA) records.
+* teredo (required, boolean): Whether to include Teredo addresses.

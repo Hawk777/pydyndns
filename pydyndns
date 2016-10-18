@@ -64,6 +64,9 @@ class IPv4(Family):
 
 
 class IPv6(Family):
+    def __init__(self, config):
+        self._config = config
+
     def getName(self):
         return "ipv6"
 
@@ -98,6 +101,7 @@ class IPv6(Family):
 
     def includeAddress(self, address):
         first_word = int(address.split(":")[0] or "0", 16)
+        second_word = int(address.split(":")[1] or "0", 16)
         if first_word == 0x0000:
             return False # Unspecified, local, or IPv6-mapped address
         elif first_word == 0x0100:
@@ -108,6 +112,8 @@ class IPv6(Family):
             return False # Link-local address
         elif (first_word & 0xFF00) == 0xFF00:
             return False # Multicast address
+        elif ((first_word == 0x2001) and (second_word == 0x0000)) and not self._config["teredo"]:
+            return False # Teredo address
         return True
 
 
@@ -116,8 +122,8 @@ def run(interface, config, logger):
     families = []
     if config["ipv4"]:
         families.append(IPv4())
-    if config["ipv6"]:
-        families.append(IPv6())
+    if config["ipv6"]["enable"]:
+        families.append(IPv6(config["ipv6"]))
     if not families:
         logger.error("No address families are enabled.")
         return
