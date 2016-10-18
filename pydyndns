@@ -33,7 +33,7 @@ class Family(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def includeAddress(self, address):
+    def filterAddressList(self, addresses):
         pass
 
 
@@ -46,6 +46,9 @@ class IPv4(Family):
 
     def addAddressToUpdate(self, update, hostPart, ttl, address):
         update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, address))
+
+    def filterAddressList(self, addresses):
+        return [x for x in addresses if self.includeAddress(x)]
 
     def includeAddress(self, address):
         parts = [int(part) for part in address.split(".")]
@@ -65,6 +68,9 @@ class IPv6(Family):
 
     def addAddressToUpdate(self, update, hostPart, ttl, address):
         update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+
+    def filterAddressList(self, addresses):
+        return [x for x in addresses if self.includeAddress(x)]
 
     def includeAddress(self, address):
         first_word = int(address.split(":")[0] or "0", 16)
@@ -124,7 +130,7 @@ def run(interface, config, logger):
     for interface in (args.interface or netifaces.interfaces()):
         for family in families:
             ifAddresses = netifaces.ifaddresses(interface).get(family.getNetIFacesConstant(), [])
-            addresses[family.getName()] += (addr["addr"] for addr in ifAddresses if family.includeAddress(addr["addr"]))
+            addresses[family.getName()] += family.filterAddressList([addr["addr"] for addr in ifAddresses])
     for family in families:
         addresses[family.getName()].sort()
 
