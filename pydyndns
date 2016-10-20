@@ -175,6 +175,14 @@ class IPv6(Family):
 
 
 def run(platform, args, config, logger):
+    """
+    Run the program.
+
+    platform -- an instance of a subclass of Platform
+    args -- a module containing parsed command-line arguments
+    config -- a dict containing the parsed configuration file
+    logger -- a logger to log messages to
+    """
     # Decide which families to use.
     families = []
     if config["ipv4"]:
