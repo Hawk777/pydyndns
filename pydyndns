@@ -49,6 +49,11 @@ class Platform(metaclass=abc.ABCMeta):
         """
         pass
 
+    @abc.abstractmethod
+    def getDefaultConfigFilename(self):
+        """Return the default location of the configuration file."""
+        pass
+
 
 class POSIXPlatform(Platform):
     def getName(self):
@@ -60,6 +65,9 @@ class POSIXPlatform(Platform):
             return []
         else:
             return [addresses[-1]]
+
+    def getDefaultConfigFilename(self):
+        return "/etc/pydyndns.conf"
 
 
 class WindowsPlatform(Platform):
@@ -73,6 +81,9 @@ class WindowsPlatform(Platform):
         else:
             return [addresses[0]]
 
+    def getDefaultConfigFilename(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pydyndns.conf")
+
 
 class UnknownPlatform(Platform):
     def getName(self):
@@ -82,6 +93,9 @@ class UnknownPlatform(Platform):
         # No idea what the convention is on this platform, so just return all
         # of them.
         return addresses
+
+    def getDefaultConfigFilename(self):
+        return "pydyndns.conf"
 
 
 class Family(metaclass=abc.ABCMeta):
@@ -267,7 +281,7 @@ if __name__ == "__main__":
 
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
-    parser.add_argument("-c", "--config", default="/etc/pydyndns.conf", type=str, help="which configuration file to read (default: /etc/pydyndns.conf)", metavar="FILE")
+    parser.add_argument("-c", "--config", default=platform.getDefaultConfigFilename(), type=str, help="which configuration file to read (default: {})".format(platform.getDefaultConfigFilename()), metavar="FILE")
     parser.add_argument("-f", "--force", action="store_true", help="update even if cache says unnecessary")
     parser.add_argument("interface", nargs="*", help="the name of an interface whose address(es) to register (default: all interfaces)")
     args = parser.parse_args()
