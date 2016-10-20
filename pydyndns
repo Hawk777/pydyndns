@@ -21,20 +21,32 @@ import dns.update
 
 
 class Family(metaclass=abc.ABCMeta):
+    """
+    Encapsulates knowledge about a specific address family.
+    """
+
     @abc.abstractmethod
     def getName(self):
+        """Return the name used as a cache key for addresses in this family."""
         pass
 
     @abc.abstractmethod
     def getNetIFacesConstant(self):
+        """Return the numeric ID used as a key in netifaces’ output."""
         pass
 
     @abc.abstractmethod
     def addAddressToUpdate(self, update, hostPart, ttl, address):
+        """Add an address in this family to a DNS update request."""
         pass
 
     @abc.abstractmethod
     def filterAddressList(self, addresses):
+        """
+        Return only those addresses that are useful, e.g. not loopback,
+        link-local, temporary, or other special addresses that should not be
+        registered.
+        """
         pass
 
 
