@@ -77,3 +77,29 @@ The tsig object, if present, contains the following keys:
 * key (required, string): The base-64-encoded shared secret.
 * keyname (required, string): The name of the key, which must match the key
   name the server is expecting.
+
+
+Example logger object for UNIX syslog dæmon output
+--------------------------------------------------
+
+```JSON
+{
+	"version": 1,
+	"formatters": {
+		"syslog": {
+			"format": "%(name)s: %(message)s"
+		}
+	},
+	"handlers": {
+		"syslog": {
+			"class": "logging.handlers.SysLogHandler",
+			"address": "/dev/log",
+			"facility": "local0",
+			"formatter": "syslog"
+		}
+	},
+	"root": {
+		"level": "WARNING",
+		"handlers": ["syslog"]
+	}
+}

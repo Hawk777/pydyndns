@@ -11,9 +11,6 @@
 			"console": {
 				"format": "%(message)s"
 			},
-			"syslog": {
-				"format": "%(name)s: %(message)s"
-			}
 		},
 		"handlers": {
 			"console": {
@@ -21,16 +18,10 @@
 				"stream": "ext://sys.stdout",
 				"formatter": "console"
 			},
-			"syslog": {
-				"class": "logging.handlers.SysLogHandler",
-				"address": "/dev/log",
-				"facility": "local0",
-				"formatter": "syslog"
-			}
 		},
 		"root": {
-			"level": "WARNING",
-			"handlers": ["syslog"]
+			"level": "DEBUG",
+			"handlers": ["console"]
 		}
 	},
 	"ttl": 60
