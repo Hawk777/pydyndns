@@ -210,6 +210,19 @@ def run(platform, args, config, logger):
     # Grab the TTL from the config file.
     ttl = int(config["ttl"])
 
+    # Wipe the cache file if in force mode. Doing this, rather than just
+    # unconditionally updating right now, means that if this update fails, the
+    # cache file will not be written and the next update will also be
+    # unconditional, which is a more useful behaviour for force (you can run in
+    # force mode once and be sure that at least one update will happen
+    # successfully before we stop trying).
+    if args.force and "cache" in config:
+        logger.debug("Wiping cache due to --force.")
+        try:
+            os.remove(config["cache"])
+        except OSError:
+            pass
+
     # Load the cache file, if any.
     if "cache" in config:
         try:
@@ -252,7 +265,7 @@ def run(platform, args, config, logger):
         last_addresses = None
 
     # Check if the current hostname and addresses are the same as the last one.
-    if fqdn.to_text() == last_hostname and addresses == last_addresses and not args.force:
+    if fqdn.to_text() == last_hostname and addresses == last_addresses:
         logger.info("Eliding DNS record update for {} to {} as cache says addresses have not changed.".format(fqdn, addresses))
     else:
         # Issue the update.
