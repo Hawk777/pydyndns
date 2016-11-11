@@ -16,6 +16,7 @@ import dns.rdatatype
 import dns.rdtypes.IN.A
 import dns.rdtypes.IN.AAAA
 import dns.resolver
+import dns.tsigkeyring
 import dns.update
 import netifaces
 
@@ -304,6 +305,23 @@ def run(platform, args, config, logger):
         for family in families:
             for address in addresses[family.getName()]:
                 family.addAddressToUpdate(update, hostPart, ttl, address)
+        if "tsig" in config:
+            knownAlgorithms = {
+                "hmac-md5": dns.tsig.HMAC_MD5,
+                "hmac-sha1": dns.tsig.HMAC_SHA1,
+                "hmac-sha224": dns.tsig.HMAC_SHA224,
+                "hmac-sha256": dns.tsig.HMAC_SHA256,
+                "hmac-sha384": dns.tsig.HMAC_SHA384,
+                "hmac-sha512": dns.tsig.HMAC_SHA512,
+            }
+            if config["tsig"]["algorithm"] not in knownAlgorithms:
+                raise RuntimeError("TSIG algorithm {} not recognized.".format(config["tsig"]["algorithm"]))
+            tsigAlgorithm = knownAlgorithms[config["tsig"]["algorithm"]]
+            tsigRing = dns.tsigkeyring.from_text({config["tsig"]["keyname"]: config["tsig"]["key"]})
+            update.use_tsig(keyring=tsigRing, algorithm=tsigAlgorithm)
+            logger.debug("Update will be authenticated with TSIG {}.".format(tsigAlgorithm))
+        else:
+            logger.debug("Update will be unauthenticated.")
         resp = dns.query.tcp(update, server)
         if resp.rcode() != dns.rcode.NOERROR:
             raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))

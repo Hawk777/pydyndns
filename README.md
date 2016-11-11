@@ -56,6 +56,7 @@ file must be a JSON object with the following keys:
   <https://docs.python.org/3/library/logging.config.html#logging-config-dictschema>.
   Note that a logger named `pydyndns` is used for all output.
 * ttl (required, number): The time to live for created DNS records, in seconds.
+* tsig (optional, object): Configuration regarding TSIG authentication; see below.
 
 
 ipv6 object
@@ -64,3 +65,15 @@ ipv6 object
 The ipv6 object contains the following keys:
 * enable (required, boolean): Whether or not to register IPv6 (AAAA) records.
 * teredo (required, boolean): Whether to include Teredo addresses.
+
+
+tsig object
+-----------
+
+The tsig object, if present, contains the following keys:
+* algorithm (required, string): The name of the TSIG algorithm to use, one of
+  `hmac-md5`, `hmac-sha1`, `hmac-sha224`, `hmac-sha256`, `hmac-sha384`, or
+  `hmac-sha512`.
+* key (required, string): The base-64-encoded shared secret.
+* keyname (required, string): The name of the key, which must match the key
+  name the server is expecting.
