@@ -112,3 +112,33 @@ Example logger object for UNIX syslog dæmon output
 		"handlers": ["syslog"]
 	}
 }
+```
+
+
+Example logger object for Windows event logger output
+-----------------------------------------------------
+
+This requires Python Win32 extensions to be installed (`python -m pip install
+pypiwin32`).
+
+```JSON
+{
+	"version": 1,
+	"formatters": {
+		"eventlog": {
+			"format": "%(message)s"
+		}
+	},
+	"handlers": {
+		"eventlog": {
+			"class": "logging.handlers.NTEventLogHandler",
+			"appname": "PyDynDNS",
+			"formatter": "eventlog"
+		}
+	},
+	"root": {
+		"level": "WARNING",
+		"handlers": ["eventlog"]
+	}
+}
+```
