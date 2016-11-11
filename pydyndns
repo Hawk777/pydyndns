@@ -54,6 +54,11 @@ class Platform(metaclass=abc.ABCMeta):
         """Return the default location of the configuration file."""
         pass
 
+    @abc.abstractmethod
+    def getDefaultCacheFilename(self):
+        """Return the default location of the cache file."""
+        pass
+
 
 class POSIXPlatform(Platform):
     def getName(self):
@@ -68,6 +73,9 @@ class POSIXPlatform(Platform):
 
     def getDefaultConfigFilename(self):
         return "/etc/pydyndns.conf"
+
+    def getDefaultCacheFilename(self):
+        return "/run/pydyndns.cache"
 
 
 class WindowsPlatform(Platform):
@@ -84,6 +92,12 @@ class WindowsPlatform(Platform):
     def getDefaultConfigFilename(self):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pydyndns.conf")
 
+    def getDefaultCacheFilename(self):
+        localAppData = os.environ.get("LOCALAPPDATA")
+        if localAppData is None:
+            localAppData = os.path.join(os.path.expand("~"), "AppData", "Local")
+        return os.path.join(localAppData, "pydyndns.cache")
+
 
 class UnknownPlatform(Platform):
     def getName(self):
@@ -96,6 +110,9 @@ class UnknownPlatform(Platform):
 
     def getDefaultConfigFilename(self):
         return "pydyndns.conf"
+
+    def getDefaultCacheFilename(self):
+        return "pydyndns.cache"
 
 
 class Family(metaclass=abc.ABCMeta):
@@ -210,24 +227,36 @@ def run(platform, args, config, logger):
     # Grab the TTL from the config file.
     ttl = int(config["ttl"])
 
+    # Decide which cache file to use, if any.
+    if isinstance(config["cache"], str):
+        cacheFile = config["cache"]
+    elif config["cache"] == True:
+        cacheFile = platform.getDefaultCacheFilename()
+    else:
+        cacheFile = None
+    if cacheFile is None:
+        logger.debug("Using no cache file.")
+    else:
+        logger.debug("Using cache file {}.".format(cacheFile))
+
     # Wipe the cache file if in force mode. Doing this, rather than just
     # unconditionally updating right now, means that if this update fails, the
     # cache file will not be written and the next update will also be
     # unconditional, which is a more useful behaviour for force (you can run in
     # force mode once and be sure that at least one update will happen
     # successfully before we stop trying).
-    if args.force and "cache" in config:
+    if args.force and cacheFile is not None:
         logger.debug("Wiping cache due to --force.")
         try:
-            os.remove(config["cache"])
+            os.remove(cacheFile)
         except OSError:
             pass
 
     # Load the cache file, if any.
-    if "cache" in config:
+    if cacheFile is not None:
         try:
-            with open(config["cache"], "r") as cacheFile:
-                cache = json.load(cacheFile)
+            with open(cacheFile, "r") as fp:
+                cache = json.load(fp)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -280,9 +309,9 @@ def run(platform, args, config, logger):
             raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
 
         # Update the cache to remember that we did this.
-        if "cache" in config:
-            with open(config["cache"], "w") as cacheFile:
-                json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, cacheFile, ensure_ascii=False, allow_nan=False)
+        if cacheFile is not None:
+            with open(cacheFile, "w") as fp:
+                json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
 
 
 if __name__ == "__main__":

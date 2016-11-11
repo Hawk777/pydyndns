@@ -39,15 +39,16 @@ Configuration File
 
 PyDynDNS uses a JSON-formatted configuration file. The top-level configuration
 file must be a JSON object with the following keys:
-* cache (optional, string): The name of the cache file. PyDynDNS writes into
-  this file each time it performs an update. When invoked, it first checks the
-  cache file to decide whether an update needs to be performed; if no data has
-  changed compared to the cache file, the update is skipped. On a single-OS
-  computer, this file can be stored anywhere. On a multi-OS computer, this file
-  should probably be stored somewhere that is destroyed on reboot, so that any
-  registration changes made while other OSes are booted will be overwritten. If
-  omitted, no cache file is used and every invocation results in an update
-  being sent.
+* cache (required, string or boolean): The name of the cache file, `true` to
+  use the platform-default cache file, or `false` to not use a cache file.
+  PyDynDNS writes into this file each time it performs an update. When invoked,
+  it first checks the cache file to decide whether an update needs to be
+  performed; if no data has changed compared to the cache file, the update is
+  skipped. On a single-OS computer, this file can be stored anywhere. On a
+  multi-OS computer, this file should probably be stored somewhere that is
+  destroyed on reboot, so that any registration changes made while other OSes
+  are booted will be overwritten. If omitted, no cache file is used and every
+  invocation results in an update being sent.
 * ipv4 (required, boolean): Whether or not to register IPv4 (A) records.
 * ipv6 (required, object): Configuration regarding IPv6; see below.
 * logging (required, object): A logging configuration, as described by the
