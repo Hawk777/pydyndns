@@ -18,6 +18,15 @@ as follows:
 
 
 
+Dependencies
+============
+
+PyDynDNS requires the following packages, all of which are available via `pip`:
+* dnspython
+* netifaces
+
+
+
 Usage
 =====
 
