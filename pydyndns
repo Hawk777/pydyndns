@@ -97,7 +97,7 @@ class WindowsPlatform(Platform):
         localAppData = os.environ.get("LOCALAPPDATA")
         if localAppData is None:
             localAppData = os.path.join(os.path.expand("~"), "AppData", "Local")
-        return os.path.join(localAppData, "pydyndns.cache")
+        return os.path.join(localAppData, "Temp", "pydyndns.cache")
 
 
 class UnknownPlatform(Platform):
