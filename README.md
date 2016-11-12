@@ -121,6 +121,12 @@ Example logger object for Windows event logger output
 This requires Python Win32 extensions to be installed (`python -m pip install
 pypiwin32`).
 
+If you are running under a low-privilege Windows account (e.g. Local Service),
+you will be able to write messages to the event log, but not register new event
+sources. Running PyDynDNS once as an adminstrator with the NTEventLogHandler
+configured will register the event source, after which subsequent invocations
+can be made from the low-privilege account.
+
 ```JSON
 {
 	"version": 1,

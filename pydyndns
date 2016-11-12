@@ -60,6 +60,14 @@ class Platform(metaclass=abc.ABCMeta):
         """Return the default location of the cache file."""
         pass
 
+    @abc.abstractmethod
+    def platformSpecificSetup(self):
+        """
+        Do any work that is specific to this platform for initializing the
+        program.
+        """
+        pass
+
 
 class POSIXPlatform(Platform):
     def getName(self):
@@ -77,6 +85,9 @@ class POSIXPlatform(Platform):
 
     def getDefaultCacheFilename(self):
         return "/run/pydyndns.cache"
+
+    def platformSpecificSetup(self):
+        pass
 
 
 class WindowsPlatform(Platform):
@@ -99,6 +110,28 @@ class WindowsPlatform(Platform):
             localAppData = os.path.join(os.path.expand("~"), "AppData", "Local")
         return os.path.join(localAppData, "Temp", "pydyndns.cache")
 
+    def platformSpecificSetup(self):
+        # Python’s NTEventLogHandler class unconditionally tries to add the
+        # event source to the Windows registry. This fails when running as a
+        # low-privileged account. If somebody had already added the event
+        # source then logging events using that source could work, but
+        # NTEventLogHandler doesn’t bother trying that, it just fails in
+        # construction if the registration fails.  Work around this by
+        # swallowing exceptions during source registration.
+        try:
+            import pywintypes
+            import win32evtlogutil
+            oldAddSourceToRegistry = win32evtlogutil.AddSourceToRegistry
+            def replacement(appname, dllname, logtype):
+                try:
+                    oldAddSourceToRegistry(appname, dllname, logtype)
+                except pywintypes.error:
+                    pass
+            win32evtlogutil.AddSourceToRegistry = replacement
+        except ImportError as exp:
+            # Guess Win32 extensions are not installed.
+            pass
+
 
 class UnknownPlatform(Platform):
     def getName(self):
@@ -114,6 +147,9 @@ class UnknownPlatform(Platform):
 
     def getDefaultCacheFilename(self):
         return "pydyndns.cache"
+
+    def platformSpecificSetup(self):
+        pass
 
 
 class Family(metaclass=abc.ABCMeta):
@@ -338,6 +374,7 @@ if __name__ == "__main__":
     for i in (POSIXPlatform(), WindowsPlatform()):
         if i.getName() == os.name:
             platform = i
+    platform.platformSpecificSetup()
 
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
