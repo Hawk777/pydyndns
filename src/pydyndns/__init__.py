@@ -307,7 +307,7 @@ def run(platform, args, config, logger):
     hostPart = fqdn.relativize(zone)
 
     # Find which nameserver we should talk to using an SOA query.
-    resp = dns.resolver.query(zone, dns.rdatatype.SOA)
+    resp = dns.resolver.resolve(zone, dns.rdatatype.SOA, search=True)
     if len(resp.rrset) != 1:
         raise RuntimeError("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
     server = resp.rrset[0].mname.to_text(omit_final_dot=True)
@@ -334,6 +334,11 @@ def run(platform, args, config, logger):
     if fqdn.to_text() == last_hostname and addresses == last_addresses:
         logger.info("Eliding DNS record update for {} to {} as cache says addresses have not changed.".format(fqdn, addresses))
     else:
+        # Resolve the nameserver hostname from the SOA record to one or more IP
+        # addresses, and try to connect a socket to each one in turn until one succeeds.
+        sock = socket.create_connection((server, 53))
+        sock.setblocking(False)
+
         # Issue the update.
         logger.info("Updating DNS record for {} to {}.".format(fqdn, addresses))
         update = dns.update.Update(zone)
@@ -358,7 +363,7 @@ def run(platform, args, config, logger):
             logger.debug("Update will be authenticated with TSIG {}.".format(tsigAlgorithm))
         else:
             logger.debug("Update will be unauthenticated.")
-        resp = dns.query.tcp(update, server)
+        resp = dns.query.tcp(update, where=None, sock=sock)
         if resp.rcode() != dns.rcode.NOERROR:
             raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
 
