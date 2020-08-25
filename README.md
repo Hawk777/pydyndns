@@ -41,13 +41,13 @@ covering the computer’s hostname. Each update deletes all records associated
 with the hostname then registers a new A or AAAA record for each of the host’s
 IP addresses.
 
-A pair of Windows Task Scheduler job files are provided in the `tasksched`
-subdirectory. These assume PyDynDNS has been installed in `C:\Program
-Files\PyDynDNS`. The `Normal.xml` job runs every ten minutes, starting ten
-minutes after system boot, to keep the DNS names up to date as IP addresses
-change. The `Force.xml` job runs once at boot with the `-f` option, to ensure
-that updates other operating systems may have made are flushed out and the
-system’s current address is registered properly.
+A pair of Windows Task Scheduler job files are provided in the
+`examples/tasksched` subdirectory. These assume PyDynDNS has been installed at
+`C:\Python3.7\Bin\PyDynDNS`. The `Normal.xml` job runs every ten minutes,
+starting ten minutes after system boot, to keep the DNS names up to date as IP
+addresses change. The `Force.xml` job runs once at boot with the `-f` option,
+to ensure that updates other operating systems may have made are flushed out
+and the system’s current address is registered properly.
 
 
 

@@ -1,1 +1,3 @@
-pydyndns.conf
+/dist
+/pydyndns.conf
+/src/pydyndns.egg-info

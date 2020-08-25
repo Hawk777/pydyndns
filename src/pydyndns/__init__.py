@@ -368,7 +368,7 @@ def run(platform, args, config, logger):
                 json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
 
 
-if __name__ == "__main__":
+def main():
     # Choose a platform.
     platform = UnknownPlatform()
     for i in (POSIXPlatform(), WindowsPlatform()):

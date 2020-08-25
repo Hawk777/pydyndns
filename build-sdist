@@ -1,0 +1,11 @@
+#!/bin/bash
+# There’s no “pip build” or anything like that readily available that is
+# equivalent to “python setup.py sdist”, but it’s literally a two-liner of
+# Python code, so just do that.
+set -e
+ve=$(mktemp -d)
+python -m venv "${ve}"
+source "${ve}/bin/activate"
+python -c 'import setuptools.build_meta; setuptools.build_meta.build_sdist("dist")'
+deactivate
+rm -r "${ve}"
