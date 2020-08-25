@@ -393,6 +393,7 @@ def main():
     else:
         logging.basicConfig(level=logging.DEBUG)
         logging.warn("No logging section in config file.")
+    logging.captureWarnings(True)
 
     # Run the program.
     try:
