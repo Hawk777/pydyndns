@@ -309,7 +309,7 @@ def run(platform, args, config, logger):
     # Find which nameserver we should talk to using an SOA query.
     resp = dns.resolver.resolve(zone, dns.rdatatype.SOA, search=True)
     if len(resp.rrset) != 1:
-        raise RuntimeError("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
+        raise Exception("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
     server = resp.rrset[0].mname.to_text(omit_final_dot=True)
     logger.debug("Using nameserver %s.", server)
 
@@ -356,7 +356,7 @@ def run(platform, args, config, logger):
                 "hmac-sha512": dns.tsig.HMAC_SHA512,
             }
             if config["tsig"]["algorithm"] not in knownAlgorithms:
-                raise RuntimeError("TSIG algorithm {} not recognized.".format(config["tsig"]["algorithm"]))
+                raise ValueError("TSIG algorithm {} not recognized.".format(config["tsig"]["algorithm"]))
             tsigAlgorithm = knownAlgorithms[config["tsig"]["algorithm"]]
             tsigRing = dns.tsigkeyring.from_text({config["tsig"]["keyname"]: config["tsig"]["key"]})
             update.use_tsig(keyring=tsigRing, algorithm=tsigAlgorithm)
@@ -365,7 +365,7 @@ def run(platform, args, config, logger):
             logger.debug("Update will be unauthenticated.")
         resp = dns.query.tcp(update, where=None, sock=sock)
         if resp.rcode() != dns.rcode.NOERROR:
-            raise RuntimeError("Update failed with rcode {}.".format(resp.rcode()))
+            raise Exception("Update failed with rcode {}.".format(resp.rcode()))
 
         # Update the cache to remember that we did this.
         if cacheFile is not None:
