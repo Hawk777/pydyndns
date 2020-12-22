@@ -274,7 +274,7 @@ def run(platform, args, config, logger):
     if cacheFile is None:
         logger.debug("Using no cache file.")
     else:
-        logger.debug("Using cache file {}.".format(cacheFile))
+        logger.debug("Using cache file %s.", cacheFile)
 
     # Wipe the cache file if in force mode. Doing this, rather than just
     # unconditionally updating right now, means that if this update fails, the
@@ -311,7 +311,7 @@ def run(platform, args, config, logger):
     if len(resp.rrset) != 1:
         raise RuntimeError("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
     server = resp.rrset[0].mname.to_text(omit_final_dot=True)
-    logger.debug("Using nameserver {}.".format(server))
+    logger.debug("Using nameserver %s.", server)
 
     # Find my addresses.
     addresses = {family.getName(): [] for family in families}
@@ -332,7 +332,7 @@ def run(platform, args, config, logger):
 
     # Check if the current hostname and addresses are the same as the last one.
     if fqdn.to_text() == last_hostname and addresses == last_addresses:
-        logger.info("Eliding DNS record update for {} to {} as cache says addresses have not changed.".format(fqdn, addresses))
+        logger.info("Eliding DNS record update for %s to %s as cache says addresses have not changed.", fqdn, addresses)
     else:
         # Resolve the nameserver hostname from the SOA record to one or more IP
         # addresses, and try to connect a socket to each one in turn until one succeeds.
@@ -340,7 +340,7 @@ def run(platform, args, config, logger):
         sock.setblocking(False)
 
         # Issue the update.
-        logger.info("Updating DNS record for {} to {}.".format(fqdn, addresses))
+        logger.info("Updating DNS record for %s to %s.", fqdn, addresses)
         update = dns.update.Update(zone)
         update.delete(hostPart)
         for family in families:
@@ -360,7 +360,7 @@ def run(platform, args, config, logger):
             tsigAlgorithm = knownAlgorithms[config["tsig"]["algorithm"]]
             tsigRing = dns.tsigkeyring.from_text({config["tsig"]["keyname"]: config["tsig"]["key"]})
             update.use_tsig(keyring=tsigRing, algorithm=tsigAlgorithm)
-            logger.debug("Update will be authenticated with TSIG {}.".format(tsigAlgorithm))
+            logger.debug("Update will be authenticated with TSIG %s.", tsigAlgorithm)
         else:
             logger.debug("Update will be unauthenticated.")
         resp = dns.query.tcp(update, where=None, sock=sock)
