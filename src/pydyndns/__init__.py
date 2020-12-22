@@ -307,7 +307,7 @@ def run(platform, args, config, logger):
     hostPart = fqdn.relativize(zone)
 
     # Find which nameserver we should talk to using an SOA query.
-    resp = dns.resolver.resolve(zone, dns.rdatatype.SOA, search=True)
+    resp = dns.resolver.query(zone, dns.rdatatype.SOA)
     if len(resp.rrset) != 1:
         raise Exception(f"Got {len(resp.rrset)} SOA records for zone {zone}, expected 1.")
     server = resp.rrset[0].mname.to_text(omit_final_dot=True)
@@ -334,12 +334,7 @@ def run(platform, args, config, logger):
     if fqdn.to_text() == last_hostname and addresses == last_addresses:
         logger.info("Eliding DNS record update for %s to %s as cache says addresses have not changed.", fqdn, addresses)
     else:
-        # Resolve the nameserver hostname from the SOA record to one or more IP
-        # addresses, and try to connect a socket to each one in turn until one succeeds.
-        sock = socket.create_connection((server, 53))
-        sock.setblocking(False)
-
-        # Issue the update.
+        # Construct the DNS update.
         logger.info("Updating DNS record for %s to %s.", fqdn, addresses)
         update = dns.update.Update(zone)
         update.delete(hostPart)
@@ -363,11 +358,33 @@ def run(platform, args, config, logger):
             logger.debug("Update will be authenticated with TSIG %s.", tsigAlgorithm)
         else:
             logger.debug("Update will be unauthenticated.")
-        resp = dns.query.tcp(update, where=None, sock=sock)
-        if resp.rcode() != dns.rcode.NOERROR:
-            raise Exception("Update failed with rcode {}.".format(resp.rcode()))
 
-        # Update the cache to remember that we did this.
+        # Resolve the nameserver hostname from the SOA record to one or more IP
+        # addresses, and try to send an update to each one in turn until one
+        # succeeds or they all fail.
+        server_addresses = socket.getaddrinfo(server, "domain", type=socket.SOCK_STREAM)
+        errors = []
+        for (_, _, _, _, sockaddr) in server_addresses:
+            try:
+                # Send the update.
+                sockaddr = sockaddr[0]
+                logger.debug("Sending update to DNS server at %s.", sockaddr)
+                resp = dns.query.tcp(update, where=sockaddr, timeout=30)
+                if resp.rcode() != dns.rcode.NOERROR:
+                    raise Exception("Update failed with rcode {resp.rrcode()}.")
+
+                # This update was successful, so no need to try the rest of the
+                # nameserver’s addresses.
+                break
+            except (OSError, dns.exception.DNSException) as exp:
+                # Hold onto the error, but don’t report it yet—try the next
+                # address instead.
+                errors.append(exp)
+        else:
+            # All the nameserver’s addresses failed. Bail out.
+            raise Exception("Unable to contact any nameservers: " + "; ".join(f"{address[4][0]}: {error}" for (address, error) in zip(server_addresses, errors)))
+
+        # Update the cache to remember that we did the update.
         if cacheFile is not None:
             with open(cacheFile, "w") as fp:
                 json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
