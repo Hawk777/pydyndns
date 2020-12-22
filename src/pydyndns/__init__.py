@@ -309,7 +309,7 @@ def run(platform, args, config, logger):
     # Find which nameserver we should talk to using an SOA query.
     resp = dns.resolver.resolve(zone, dns.rdatatype.SOA, search=True)
     if len(resp.rrset) != 1:
-        raise Exception("Got {} SOA records for zone {}, expected 1.".format(len(resp.rrset), zone))
+        raise Exception(f"Got {len(resp.rrset)} SOA records for zone {zone}, expected 1.")
     server = resp.rrset[0].mname.to_text(omit_final_dot=True)
     logger.debug("Using nameserver %s.", server)
 
@@ -356,7 +356,7 @@ def run(platform, args, config, logger):
                 "hmac-sha512": dns.tsig.HMAC_SHA512,
             }
             if config["tsig"]["algorithm"] not in knownAlgorithms:
-                raise ValueError("TSIG algorithm {} not recognized.".format(config["tsig"]["algorithm"]))
+                raise ValueError(f"TSIG algorithm {config['tsig']['algorithm']} not recognized.")
             tsigAlgorithm = knownAlgorithms[config["tsig"]["algorithm"]]
             tsigRing = dns.tsigkeyring.from_text({config["tsig"]["keyname"]: config["tsig"]["key"]})
             update.use_tsig(keyring=tsigRing, algorithm=tsigAlgorithm)
@@ -383,7 +383,7 @@ def main():
 
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
-    parser.add_argument("-c", "--config", default=platform.getDefaultConfigFilename(), type=str, help="which configuration file to read (default: {})".format(platform.getDefaultConfigFilename()), metavar="FILE")
+    parser.add_argument("-c", "--config", default=platform.getDefaultConfigFilename(), type=str, help=f"which configuration file to read (default: {platform.getDefaultConfigFilename()})", metavar="FILE")
     parser.add_argument("-f", "--force", action="store_true", help="update even if cache says unnecessary")
     parser.add_argument("interface", nargs="*", help="the name of an interface whose address(es) to register (default: all interfaces)")
     args = parser.parse_args()
