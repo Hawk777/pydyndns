@@ -209,23 +209,23 @@ class IPv4(Family):
 
 
 class IPv6(Family):
-    def __init__(self, platform, config):
+    def __init__(self, platform: Platform, config: typing.Mapping[typing.Any, typing.Any]):
         self._platform = platform
         self._config = config
 
-    def getName(self):
+    def getName(self) -> str:
         return "ipv6"
 
-    def getNetIFacesConstant(self):
+    def getNetIFacesConstant(self) -> int:
         return netifaces.AF_INET6
 
-    def addAddressToUpdate(self, update, hostPart, ttl, address):
+    def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
 
-    def filterAddressList(self, addresses):
+    def filterAddressList(self, addresses: typing.Iterable[str]) -> typing.List[str]:
         return self._platform.getPermanentIPv6Addresses([x for x in addresses if self.includeAddress(x)])
 
-    def includeAddress(self, address):
+    def includeAddress(self, address: str) -> bool:
         first_word = int(address.split(":")[0] or "0", 16)
         second_word = int(address.split(":")[1] or "0", 16)
         if first_word == 0x0000:
@@ -243,7 +243,7 @@ class IPv6(Family):
         return True
 
 
-def run(platform, args, config, logger):
+def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typing.Any, typing.Any], logger: logging.Logger) -> None:
     """
     Run the program.
 
@@ -253,7 +253,7 @@ def run(platform, args, config, logger):
     logger -- a logger to log messages to
     """
     # Decide which families to use.
-    families = []
+    families: typing.List[Family] = []
     if config["ipv4"]:
         families.append(IPv4())
     if config["ipv6"]["enable"]:
@@ -266,6 +266,7 @@ def run(platform, args, config, logger):
     ttl = int(config["ttl"])
 
     # Decide which cache file to use, if any.
+    cacheFile: typing.Optional[str]
     if isinstance(config["cache"], str):
         cacheFile = config["cache"]
     elif config["cache"] == True:
@@ -315,7 +316,7 @@ def run(platform, args, config, logger):
     logger.debug("Using nameserver %s.", server)
 
     # Find my addresses.
-    addresses = {family.getName(): [] for family in families}
+    addresses: typing.Dict[str, typing.List[str]] = {family.getName(): [] for family in families}
     for interface in (args.interface or netifaces.interfaces()):
         for family in families:
             ifAddresses = netifaces.ifaddresses(interface).get(family.getNetIFacesConstant(), [])
@@ -391,9 +392,9 @@ def run(platform, args, config, logger):
                 json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
 
 
-def main():
+def main() -> None:
     # Choose a platform.
-    platform = UnknownPlatform()
+    platform: Platform = UnknownPlatform()
     for i in (POSIXPlatform(), WindowsPlatform()):
         if i.getName() == os.name:
             platform = i
