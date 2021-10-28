@@ -27,13 +27,14 @@ class Platform(metaclass=abc.ABCMeta):
     Encapsulates knowledge about a specific operating system.
     """
 
+    @property
     @abc.abstractmethod
-    def getName(self) -> str:
-        """Return the name as shown in os.name."""
+    def name(self) -> str:
+        """The name as shown in os.name."""
         pass
 
     @abc.abstractmethod
-    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         """
         Return only the IPv6 addresses that are permanent (i.e. not generated
         by RFC4941 privacy extensions).
@@ -51,18 +52,20 @@ class Platform(metaclass=abc.ABCMeta):
         """
         pass
 
+    @property
     @abc.abstractmethod
-    def getDefaultConfigFilename(self) -> str:
+    def default_config_filename(self) -> str:
         """Return the default location of the configuration file."""
         pass
 
+    @property
     @abc.abstractmethod
-    def getDefaultCacheFilename(self) -> str:
+    def default_cache_filename(self) -> str:
         """Return the default location of the cache file."""
         pass
 
     @abc.abstractmethod
-    def platformSpecificSetup(self) -> None:
+    def platform_specific_setup(self) -> None:
         """
         Do any work that is specific to this platform for initializing the
         program.
@@ -71,47 +74,53 @@ class Platform(metaclass=abc.ABCMeta):
 
 
 class POSIXPlatform(Platform):
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return "posix"
 
-    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         # Linux returns permanent addresses last.
         if len(addresses) == 0:
             return []
         else:
             return [addresses[-1]]
 
-    def getDefaultConfigFilename(self) -> str:
+    @property
+    def default_config_filename(self) -> str:
         return "/etc/pydyndns.conf"
 
-    def getDefaultCacheFilename(self) -> str:
+    @property
+    def default_cache_filename(self) -> str:
         return "/run/pydyndns.cache"
 
-    def platformSpecificSetup(self) -> None:
+    def platform_specific_setup(self) -> None:
         pass
 
 
 class WindowsPlatform(Platform):
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return "nt"
 
-    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         # Windows returns permanent addresses first.
         if len(addresses) == 0:
             return []
         else:
             return [addresses[0]]
 
-    def getDefaultConfigFilename(self) -> str:
+    @property
+    def default_config_filename(self) -> str:
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pydyndns.conf")
 
-    def getDefaultCacheFilename(self) -> str:
+    @property
+    def default_cache_filename(self) -> str:
         localAppData = os.environ.get("LOCALAPPDATA")
         if localAppData is None:
             localAppData = os.path.join(os.path.expanduser("~"), "AppData", "Local")
         return os.path.join(localAppData, "Temp", "pydyndns.cache")
 
-    def platformSpecificSetup(self) -> None:
+    def platform_specific_setup(self) -> None:
         # Python’s NTEventLogHandler class unconditionally tries to add the
         # event source to the Windows registry. This fails when running as a
         # low-privileged account. If somebody had already added the event
@@ -135,21 +144,24 @@ class WindowsPlatform(Platform):
 
 
 class UnknownPlatform(Platform):
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return "unknown"
 
-    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         # No idea what the convention is on this platform, so just return all
         # of them.
         return addresses
 
-    def getDefaultConfigFilename(self) -> str:
+    @property
+    def default_config_filename(self) -> str:
         return "pydyndns.conf"
 
-    def getDefaultCacheFilename(self) -> str:
+    @property
+    def default_cache_filename(self) -> str:
         return "pydyndns.cache"
 
-    def platformSpecificSetup(self) -> None:
+    def platform_specific_setup(self) -> None:
         pass
 
 
@@ -158,23 +170,25 @@ class Family(metaclass=abc.ABCMeta):
     Encapsulates knowledge about a specific address family.
     """
 
+    @property
     @abc.abstractmethod
-    def getName(self) -> str:
-        """Return the name used as a cache key for addresses in this family."""
+    def name(self) -> str:
+        """The name used as a cache key for addresses in this family."""
         pass
 
+    @property
     @abc.abstractmethod
-    def getNetIFacesConstant(self) -> int:
+    def netifaces_constant(self) -> int:
         """Return the numeric ID used as a key in netifaces’ output."""
         pass
 
     @abc.abstractmethod
-    def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
+    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         """Add an address in this family to a DNS update request."""
         pass
 
     @abc.abstractmethod
-    def filterAddressList(self, addresses: typing.Iterable[str]) -> typing.List[str]:
+    def filter_address_list(self, addresses: typing.Iterable[str]) -> typing.List[str]:
         """
         Return only those addresses that are useful, e.g. not loopback,
         link-local, temporary, or other special addresses that should not be
@@ -184,22 +198,24 @@ class Family(metaclass=abc.ABCMeta):
 
 
 class IPv4(Family):
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return "ipv4"
 
-    def getNetIFacesConstant(self) -> int:
+    @property
+    def netifaces_constant(self) -> int:
         return int(socket.AF_INET)
 
-    def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
+    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, address))
 
-    def filterAddressList(self, addresses: typing.Iterable[str]) -> typing.List[str]:
+    def filter_address_list(self, addresses: typing.Iterable[str]) -> typing.List[str]:
         # For IPv4 most NICs have only one address. It’s not clear that there
         # are any specific rules about how multiple addresses ought to be
         # handled. Just include all of them that are acceptable.
-        return [x for x in addresses if self.includeAddress(x)]
+        return [x for x in addresses if self.include_address(x)]
 
-    def includeAddress(self, address: str) -> bool:
+    def include_address(self, address: str) -> bool:
         parts = [int(part) for part in address.split(".")]
         if parts[0] == 127:
             return False # Loopback address
@@ -213,19 +229,21 @@ class IPv6(Family):
         self._platform = platform
         self._config = config
 
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return "ipv6"
 
-    def getNetIFacesConstant(self) -> int:
+    @property
+    def netifaces_constant(self) -> int:
         return int(socket.AF_INET6)
 
-    def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
+    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
 
-    def filterAddressList(self, addresses: typing.Iterable[str]) -> typing.List[str]:
-        return self._platform.getPermanentIPv6Addresses([x for x in addresses if self.includeAddress(x)])
+    def filter_address_list(self, addresses: typing.Iterable[str]) -> typing.List[str]:
+        return self._platform.permanent_ipv6_addresses([x for x in addresses if self.include_address(x)])
 
-    def includeAddress(self, address: str) -> bool:
+    def include_address(self, address: str) -> bool:
         first_word = int(address.split(":")[0] or "0", 16)
         second_word = int(address.split(":")[1] or "0", 16)
         if first_word == 0x0000:
@@ -266,17 +284,17 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
     ttl = int(config["ttl"])
 
     # Decide which cache file to use, if any.
-    cacheFile: typing.Optional[str]
+    cache_file: typing.Optional[str]
     if isinstance(config["cache"], str):
-        cacheFile = config["cache"]
+        cache_file = config["cache"]
     elif config["cache"] == True:
-        cacheFile = platform.getDefaultCacheFilename()
+        cache_file = platform.default_cache_filename
     else:
-        cacheFile = None
-    if cacheFile is None:
+        cache_file = None
+    if cache_file is None:
         logger.debug("Using no cache file.")
     else:
-        logger.debug("Using cache file %s.", cacheFile)
+        logger.debug("Using cache file %s.", cache_file)
 
     # Wipe the cache file if in force mode. Doing this, rather than just
     # unconditionally updating right now, means that if this update fails, the
@@ -284,17 +302,17 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
     # unconditional, which is a more useful behaviour for force (you can run in
     # force mode once and be sure that at least one update will happen
     # successfully before we stop trying).
-    if args.force and cacheFile is not None:
+    if args.force and cache_file is not None:
         logger.debug("Wiping cache due to --force.")
         try:
-            os.remove(cacheFile)
+            os.remove(cache_file)
         except OSError:
             pass
 
     # Load the cache file, if any.
-    if cacheFile is not None:
+    if cache_file is not None:
         try:
-            with open(cacheFile, "r") as fp:
+            with open(cache_file, "r") as fp:
                 cache = json.load(fp)
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -316,13 +334,13 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
     logger.debug("Using nameserver %s.", server)
 
     # Find my addresses.
-    addresses: typing.Dict[str, typing.List[str]] = {family.getName(): [] for family in families}
+    addresses: typing.Dict[str, typing.List[str]] = {family.name: [] for family in families}
     for interface in (args.interface or netifaces.interfaces()):
         for family in families:
-            ifAddresses = netifaces.ifaddresses(interface).get(family.getNetIFacesConstant(), [])
-            addresses[family.getName()] += family.filterAddressList([addr["addr"] for addr in ifAddresses])
+            ifAddresses = netifaces.ifaddresses(interface).get(family.netifaces_constant, [])
+            addresses[family.name] += family.filter_address_list([addr["addr"] for addr in ifAddresses])
     for family in families:
-        addresses[family.getName()].sort()
+        addresses[family.name].sort()
 
     # Get the hostname and addresses most recently sent from the cache.
     if cache:
@@ -341,8 +359,8 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
         update = dns.update.Update(zone)
         update.delete(hostPart)
         for family in families:
-            for address in addresses[family.getName()]:
-                family.addAddressToUpdate(update, hostPart, ttl, address)
+            for address in addresses[family.name]:
+                family.add_address_to_update(update, hostPart, ttl, address)
         if "tsig" in config:
             knownAlgorithms = {
                 "hmac-md5": dns.tsig.HMAC_MD5,
@@ -387,8 +405,8 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
             raise Exception("Unable to contact any nameservers: " + "; ".join(f"{address[4][0]}: {error}" for (address, error) in zip(server_addresses, errors)))
 
         # Update the cache to remember that we did the update.
-        if cacheFile is not None:
-            with open(cacheFile, "w") as fp:
+        if cache_file is not None:
+            with open(cache_file, "w") as fp:
                 json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
 
 
@@ -396,13 +414,13 @@ def main() -> None:
     # Choose a platform.
     platform: Platform = UnknownPlatform()
     for i in (POSIXPlatform(), WindowsPlatform()):
-        if i.getName() == os.name:
+        if i.name == os.name:
             platform = i
-    platform.platformSpecificSetup()
+    platform.platform_specific_setup()
 
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
-    parser.add_argument("-c", "--config", default=platform.getDefaultConfigFilename(), type=str, help=f"which configuration file to read (default: {platform.getDefaultConfigFilename()})", metavar="FILE")
+    parser.add_argument("-c", "--config", default=platform.default_config_filename, type=str, help=f"which configuration file to read (default: {platform.default_config_filename})", metavar="FILE")
     parser.add_argument("-f", "--force", action="store_true", help="update even if cache says unnecessary")
     parser.add_argument("interface", nargs="*", help="the name of an interface whose address(es) to register (default: all interfaces)")
     args = parser.parse_args()
