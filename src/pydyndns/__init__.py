@@ -9,6 +9,7 @@ import logging.handlers
 import os
 import socket
 import sys
+import typing
 
 import dns.name
 import dns.rdataclass
@@ -27,12 +28,12 @@ class Platform(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def getName(self):
+    def getName(self) -> str:
         """Return the name as shown in os.name."""
         pass
 
     @abc.abstractmethod
-    def getPermanentIPv6Addresses(self, addresses):
+    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         """
         Return only the IPv6 addresses that are permanent (i.e. not generated
         by RFC4941 privacy extensions).
@@ -51,17 +52,17 @@ class Platform(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def getDefaultConfigFilename(self):
+    def getDefaultConfigFilename(self) -> str:
         """Return the default location of the configuration file."""
         pass
 
     @abc.abstractmethod
-    def getDefaultCacheFilename(self):
+    def getDefaultCacheFilename(self) -> str:
         """Return the default location of the cache file."""
         pass
 
     @abc.abstractmethod
-    def platformSpecificSetup(self):
+    def platformSpecificSetup(self) -> None:
         """
         Do any work that is specific to this platform for initializing the
         program.
@@ -70,47 +71,47 @@ class Platform(metaclass=abc.ABCMeta):
 
 
 class POSIXPlatform(Platform):
-    def getName(self):
+    def getName(self) -> str:
         return "posix"
 
-    def getPermanentIPv6Addresses(self, addresses):
+    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         # Linux returns permanent addresses last.
         if len(addresses) == 0:
             return []
         else:
             return [addresses[-1]]
 
-    def getDefaultConfigFilename(self):
+    def getDefaultConfigFilename(self) -> str:
         return "/etc/pydyndns.conf"
 
-    def getDefaultCacheFilename(self):
+    def getDefaultCacheFilename(self) -> str:
         return "/run/pydyndns.cache"
 
-    def platformSpecificSetup(self):
+    def platformSpecificSetup(self) -> None:
         pass
 
 
 class WindowsPlatform(Platform):
-    def getName(self):
+    def getName(self) -> str:
         return "nt"
 
-    def getPermanentIPv6Addresses(self, addresses):
+    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         # Windows returns permanent addresses first.
         if len(addresses) == 0:
             return []
         else:
             return [addresses[0]]
 
-    def getDefaultConfigFilename(self):
+    def getDefaultConfigFilename(self) -> str:
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pydyndns.conf")
 
-    def getDefaultCacheFilename(self):
+    def getDefaultCacheFilename(self) -> str:
         localAppData = os.environ.get("LOCALAPPDATA")
         if localAppData is None:
-            localAppData = os.path.join(os.path.expand("~"), "AppData", "Local")
+            localAppData = os.path.join(os.path.expanduser("~"), "AppData", "Local")
         return os.path.join(localAppData, "Temp", "pydyndns.cache")
 
-    def platformSpecificSetup(self):
+    def platformSpecificSetup(self) -> None:
         # Python’s NTEventLogHandler class unconditionally tries to add the
         # event source to the Windows registry. This fails when running as a
         # low-privileged account. If somebody had already added the event
@@ -122,7 +123,7 @@ class WindowsPlatform(Platform):
             import pywintypes
             import win32evtlogutil
             oldAddSourceToRegistry = win32evtlogutil.AddSourceToRegistry
-            def replacement(appname, dllname, logtype):
+            def replacement(appname: str, dllname: str, logtype: str) -> None:
                 try:
                     oldAddSourceToRegistry(appname, dllname, logtype)
                 except pywintypes.error:
@@ -134,21 +135,21 @@ class WindowsPlatform(Platform):
 
 
 class UnknownPlatform(Platform):
-    def getName(self):
+    def getName(self) -> str:
         return "unknown"
 
-    def getPermanentIPv6Addresses(self, addresses):
+    def getPermanentIPv6Addresses(self, addresses: typing.List[str]) -> typing.List[str]:
         # No idea what the convention is on this platform, so just return all
         # of them.
         return addresses
 
-    def getDefaultConfigFilename(self):
+    def getDefaultConfigFilename(self) -> str:
         return "pydyndns.conf"
 
-    def getDefaultCacheFilename(self):
+    def getDefaultCacheFilename(self) -> str:
         return "pydyndns.cache"
 
-    def platformSpecificSetup(self):
+    def platformSpecificSetup(self) -> None:
         pass
 
 
@@ -158,22 +159,22 @@ class Family(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def getName(self):
+    def getName(self) -> str:
         """Return the name used as a cache key for addresses in this family."""
         pass
 
     @abc.abstractmethod
-    def getNetIFacesConstant(self):
+    def getNetIFacesConstant(self) -> int:
         """Return the numeric ID used as a key in netifaces’ output."""
         pass
 
     @abc.abstractmethod
-    def addAddressToUpdate(self, update, hostPart, ttl, address):
+    def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         """Add an address in this family to a DNS update request."""
         pass
 
     @abc.abstractmethod
-    def filterAddressList(self, addresses):
+    def filterAddressList(self, addresses: typing.Iterable[str]) -> typing.List[str]:
         """
         Return only those addresses that are useful, e.g. not loopback,
         link-local, temporary, or other special addresses that should not be
@@ -183,22 +184,22 @@ class Family(metaclass=abc.ABCMeta):
 
 
 class IPv4(Family):
-    def getName(self):
+    def getName(self) -> str:
         return "ipv4"
 
-    def getNetIFacesConstant(self):
+    def getNetIFacesConstant(self) -> int:
         return netifaces.AF_INET
 
-    def addAddressToUpdate(self, update, hostPart, ttl, address):
+    def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, address))
 
-    def filterAddressList(self, addresses):
+    def filterAddressList(self, addresses: typing.Iterable[str]) -> typing.List[str]:
         # For IPv4 most NICs have only one address. It’s not clear that there
         # are any specific rules about how multiple addresses ought to be
         # handled. Just include all of them that are acceptable.
         return [x for x in addresses if self.includeAddress(x)]
 
-    def includeAddress(self, address):
+    def includeAddress(self, address: str) -> bool:
         parts = [int(part) for part in address.split(".")]
         if parts[0] == 127:
             return False # Loopback address
