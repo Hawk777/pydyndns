@@ -188,7 +188,7 @@ class IPv4(Family):
         return "ipv4"
 
     def getNetIFacesConstant(self) -> int:
-        return netifaces.AF_INET
+        return int(socket.AF_INET)
 
     def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, address))
@@ -217,7 +217,7 @@ class IPv6(Family):
         return "ipv6"
 
     def getNetIFacesConstant(self) -> int:
-        return netifaces.AF_INET6
+        return int(socket.AF_INET6)
 
     def addAddressToUpdate(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
         update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
