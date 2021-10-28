@@ -368,9 +368,9 @@ def run(platform, args, config, logger):
         for (_, _, _, _, sockaddr) in server_addresses:
             try:
                 # Send the update.
-                sockaddr = sockaddr[0]
-                logger.debug("Sending update to DNS server at %s.", sockaddr)
-                resp = dns.query.tcp(update, where=sockaddr, timeout=30)
+                server_address = sockaddr[0]
+                logger.debug("Sending update to DNS server at %s.", server_address)
+                resp = dns.query.tcp(update, where=server_address, timeout=30)
                 if resp.rcode() != dns.rcode.NOERROR:
                     raise Exception("Update failed with rcode {resp.rrcode()}.")
 
