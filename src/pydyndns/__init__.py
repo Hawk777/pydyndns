@@ -121,10 +121,10 @@ class WindowsPlatform(Platform):
 
     @property
     def default_cache_filename(self) -> str:
-        localAppData = os.environ.get("LOCALAPPDATA")
-        if localAppData is None:
-            localAppData = os.path.join(os.path.expanduser("~"), "AppData", "Local")
-        return os.path.join(localAppData, "Temp", "pydyndns.cache")
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data is None:
+            local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        return os.path.join(local_app_data, "Temp", "pydyndns.cache")
 
     def platform_specific_setup(self) -> None:
         # Python’s NTEventLogHandler class unconditionally tries to add the
@@ -137,10 +137,10 @@ class WindowsPlatform(Platform):
         try:
             import pywintypes
             import win32evtlogutil
-            oldAddSourceToRegistry = win32evtlogutil.AddSourceToRegistry
+            old_add_source_to_registry = win32evtlogutil.AddSourceToRegistry
             def replacement(appname: str, dllname: str, logtype: str) -> None:
                 try:
-                    oldAddSourceToRegistry(appname, dllname, logtype)
+                    old_add_source_to_registry(appname, dllname, logtype)
                 except pywintypes.error:
                     pass
             win32evtlogutil.AddSourceToRegistry = replacement
