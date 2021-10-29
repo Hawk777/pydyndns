@@ -2,6 +2,7 @@
 
 import abc
 import argparse
+import ipaddress
 import json
 import logging
 import logging.config
@@ -23,6 +24,20 @@ import dns.update
 import netifaces
 
 
+IPAddressUnion = typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+
+
+class IPAddressEnabledJSONEncoder(json.JSONEncoder):
+    """
+    A JSON encoder that is capable of encoding IP address objects into strings.
+    """
+    def default(self, obj: typing.Any) -> typing.Any:
+        if isinstance(obj, (ipaddress.IPv4Address, ipaddress.IPv6Address)):
+            return str(obj)
+        else:
+            return super().default(obj)
+
+
 class Platform(metaclass=abc.ABCMeta):
     """
     Encapsulates knowledge about a specific operating system.
@@ -37,7 +52,7 @@ class Platform(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[ipaddress.IPv6Address]) -> typing.List[ipaddress.IPv6Address]:
         """
         Return only the IPv6 addresses that are permanent (i.e. not generated
         by RFC4941 privacy extensions).
@@ -83,7 +98,7 @@ class POSIXPlatform(Platform):
     def name(self) -> str:
         return "posix"
 
-    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[ipaddress.IPv6Address]) -> typing.List[ipaddress.IPv6Address]:
         # Linux returns permanent addresses last.
         if len(addresses) == 0:
             return []
@@ -109,7 +124,7 @@ class WindowsPlatform(Platform):
     def name(self) -> str:
         return "nt"
 
-    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[ipaddress.IPv6Address]) -> typing.List[ipaddress.IPv6Address]:
         # Windows returns permanent addresses first.
         if len(addresses) == 0:
             return []
@@ -159,7 +174,7 @@ class UnknownPlatform(Platform):
     def name(self) -> str:
         return "unknown"
 
-    def permanent_ipv6_addresses(self, addresses: typing.List[str]) -> typing.List[str]:
+    def permanent_ipv6_addresses(self, addresses: typing.List[ipaddress.IPv6Address]) -> typing.List[ipaddress.IPv6Address]:
         # No idea what the convention is on this platform, so just return all
         # of them.
         return addresses
@@ -196,12 +211,12 @@ class Family(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
+    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: IPAddressUnion) -> None:
         """Add an address in this family to a DNS update request."""
         pass
 
     @abc.abstractmethod
-    def filter_address_list(self, addresses: typing.Iterable[str]) -> typing.List[str]:
+    def filter_address_list(self, addresses: typing.Iterable[IPAddressUnion]) -> typing.Sequence[IPAddressUnion]:
         """
         Return only those addresses that are useful, e.g. not loopback,
         link-local, temporary, or other special addresses that should not be
@@ -221,22 +236,18 @@ class IPv4(Family):
     def netifaces_constant(self) -> int:
         return int(socket.AF_INET)
 
-    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
-        update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, address))
+    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: IPAddressUnion) -> None:
+        assert isinstance(address, ipaddress.IPv4Address)
+        update.add(hostPart, ttl, dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, str(address)))
 
-    def filter_address_list(self, addresses: typing.Iterable[str]) -> typing.List[str]:
+    def filter_address_list(self, addresses: typing.Iterable[IPAddressUnion]) -> typing.Sequence[ipaddress.IPv4Address]:
         # For IPv4 most NICs have only one address. It’s not clear that there
         # are any specific rules about how multiple addresses ought to be
         # handled. Just include all of them that are acceptable.
-        return [x for x in addresses if self.include_address(x)]
+        return [x for x in addresses if isinstance(x, ipaddress.IPv4Address) and self.include_address(x)]
 
-    def include_address(self, address: str) -> bool:
-        parts = [int(part) for part in address.split(".")]
-        if parts[0] == 127:
-            return False # Loopback address
-        elif parts[0] >= 240:
-            return False # Multicast or reserved address
-        return True
+    def include_address(self, address: ipaddress.IPv4Address) -> bool:
+        return (address.is_private or address.is_global) and not address.is_link_local
 
 
 class IPv6(Family):
@@ -257,28 +268,17 @@ class IPv6(Family):
     def netifaces_constant(self) -> int:
         return int(socket.AF_INET6)
 
-    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: str) -> None:
-        update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, address))
+    def add_address_to_update(self, update: dns.update.Update, hostPart: dns.name.Name, ttl: int, address: IPAddressUnion) -> None:
+        assert isinstance(address, ipaddress.IPv6Address)
+        update.add(hostPart, ttl, dns.rdtypes.IN.AAAA.AAAA(dns.rdataclass.IN, dns.rdatatype.AAAA, str(address)))
 
-    def filter_address_list(self, addresses: typing.Iterable[str]) -> typing.List[str]:
-        return self._platform.permanent_ipv6_addresses([x for x in addresses if self.include_address(x)])
+    def filter_address_list(self, addresses: typing.Iterable[IPAddressUnion]) -> typing.Sequence[ipaddress.IPv6Address]:
+        return self._platform.permanent_ipv6_addresses([x for x in addresses if isinstance(x, ipaddress.IPv6Address) and self.include_address(x)])
 
-    def include_address(self, address: str) -> bool:
-        first_word = int(address.split(":")[0] or "0", 16)
-        second_word = int(address.split(":")[1] or "0", 16)
-        if first_word == 0x0000:
-            return False # Unspecified, local, or IPv6-mapped address
-        elif first_word == 0x0100:
-            return False # Discard address
-        elif (first_word & 0xFE00) == 0xFC00:
-            return False # Unique local address
-        elif first_word == 0xFE80:
-            return False # Link-local address
-        elif (first_word & 0xFF00) == 0xFF00:
-            return False # Multicast address
-        elif ((first_word == 0x2001) and (second_word == 0x0000)) and not self._config["teredo"]:
-            return False # Teredo address
-        return True
+    def include_address(self, address: ipaddress.IPv6Address) -> bool:
+        if address.teredo is not None and not self._config["teredo"]:
+            return False
+        return address.ipv4_mapped is None and (address.is_private or address.is_global) and not address.is_link_local
 
 
 def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typing.Any, typing.Any], logger: logging.Logger) -> None:
@@ -354,18 +354,23 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
     logger.debug("Using nameserver %s.", server)
 
     # Find my addresses.
-    addresses: typing.Dict[str, typing.List[str]] = {family.name: [] for family in families}
+    addresses: typing.Dict[str, typing.List[IPAddressUnion]] = {family.name: [] for family in families}
     for interface in (args.interface or netifaces.interfaces()):
         for family in families:
             ifAddresses = netifaces.ifaddresses(interface).get(family.netifaces_constant, [])
-            addresses[family.name] += family.filter_address_list([addr["addr"] for addr in ifAddresses])
+            addresses[family.name] += family.filter_address_list([ipaddress.ip_address(addr["addr"]) for addr in ifAddresses])
     for family in families:
         addresses[family.name].sort()
 
     # Get the hostname and addresses most recently sent from the cache.
     if cache:
         last_hostname = cache.get("hostname")
-        last_addresses = cache.get("addresses")
+        last_addresses_strings = cache.get("addresses")
+        last_addresses: typing.Optional[typing.Dict[str, typing.List[IPAddressUnion]]]
+        if last_addresses_strings is not None:
+            last_addresses = {family: [ipaddress.ip_address(a) for a in addresses] for (family, addresses) in last_addresses_strings.items()}
+        else:
+            last_addresses = None
     else:
         last_hostname = None
         last_addresses = None
@@ -427,7 +432,7 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
         # Update the cache to remember that we did the update.
         if cache_file is not None:
             with cache_file.open("w") as fp:
-                json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
+                json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False, cls=IPAddressEnabledJSONEncoder)
 
 
 def main() -> None:
