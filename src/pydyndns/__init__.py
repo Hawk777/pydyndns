@@ -27,6 +27,8 @@ class Platform(metaclass=abc.ABCMeta):
     Encapsulates knowledge about a specific operating system.
     """
 
+    __slots__ = ()
+
     @property
     @abc.abstractmethod
     def name(self) -> str:
@@ -74,6 +76,8 @@ class Platform(metaclass=abc.ABCMeta):
 
 
 class POSIXPlatform(Platform):
+    __slots__ = ()
+
     @property
     def name(self) -> str:
         return "posix"
@@ -98,6 +102,8 @@ class POSIXPlatform(Platform):
 
 
 class WindowsPlatform(Platform):
+    __slots__ = ()
+
     @property
     def name(self) -> str:
         return "nt"
@@ -144,6 +150,8 @@ class WindowsPlatform(Platform):
 
 
 class UnknownPlatform(Platform):
+    __slots__ = ()
+
     @property
     def name(self) -> str:
         return "unknown"
@@ -169,6 +177,8 @@ class Family(metaclass=abc.ABCMeta):
     """
     Encapsulates knowledge about a specific address family.
     """
+
+    __slots__ = ()
 
     @property
     @abc.abstractmethod
@@ -198,6 +208,8 @@ class Family(metaclass=abc.ABCMeta):
 
 
 class IPv4(Family):
+    __slots__ = ()
+
     @property
     def name(self) -> str:
         return "ipv4"
@@ -225,6 +237,11 @@ class IPv4(Family):
 
 
 class IPv6(Family):
+    __slots__ = (
+        "_platform",
+        "_config",
+    )
+
     def __init__(self, platform: Platform, config: typing.Mapping[typing.Any, typing.Any]):
         self._platform = platform
         self._config = config
