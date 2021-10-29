@@ -7,6 +7,7 @@ import logging
 import logging.config
 import logging.handlers
 import os
+import pathlib
 import socket
 import sys
 import typing
@@ -56,13 +57,13 @@ class Platform(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def default_config_filename(self) -> str:
+    def default_config_filename(self) -> pathlib.Path:
         """Return the default location of the configuration file."""
         pass
 
     @property
     @abc.abstractmethod
-    def default_cache_filename(self) -> str:
+    def default_cache_filename(self) -> pathlib.Path:
         """Return the default location of the cache file."""
         pass
 
@@ -90,12 +91,12 @@ class POSIXPlatform(Platform):
             return [addresses[-1]]
 
     @property
-    def default_config_filename(self) -> str:
-        return "/etc/pydyndns.conf"
+    def default_config_filename(self) -> pathlib.Path:
+        return pathlib.Path("/etc/pydyndns.conf")
 
     @property
-    def default_cache_filename(self) -> str:
-        return "/run/pydyndns.cache"
+    def default_cache_filename(self) -> pathlib.Path:
+        return pathlib.Path("/run/pydyndns.cache")
 
     def platform_specific_setup(self) -> None:
         pass
@@ -116,15 +117,17 @@ class WindowsPlatform(Platform):
             return [addresses[0]]
 
     @property
-    def default_config_filename(self) -> str:
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "pydyndns.conf")
+    def default_config_filename(self) -> pathlib.Path:
+        return pathlib.Path(__file__).parent / "pydyndns.conf"
 
     @property
-    def default_cache_filename(self) -> str:
-        local_app_data = os.environ.get("LOCALAPPDATA")
-        if local_app_data is None:
-            local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
-        return os.path.join(local_app_data, "Temp", "pydyndns.cache")
+    def default_cache_filename(self) -> pathlib.Path:
+        env_var = os.environ.get("LOCALAPPDATA")
+        if env_var is None:
+            local_app_data = pathlib.Path.home() / "AppData" / "Local"
+        else:
+            local_app_data = pathlib.Path(env_var)
+        return local_app_data / "Temp" / "pydyndns.cache"
 
     def platform_specific_setup(self) -> None:
         # Python’s NTEventLogHandler class unconditionally tries to add the
@@ -162,12 +165,12 @@ class UnknownPlatform(Platform):
         return addresses
 
     @property
-    def default_config_filename(self) -> str:
-        return "pydyndns.conf"
+    def default_config_filename(self) -> pathlib.Path:
+        return pathlib.Path("pydyndns.conf")
 
     @property
-    def default_cache_filename(self) -> str:
-        return "pydyndns.cache"
+    def default_cache_filename(self) -> pathlib.Path:
+        return pathlib.Path("pydyndns.cache")
 
     def platform_specific_setup(self) -> None:
         pass
@@ -301,9 +304,9 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
     ttl = int(config["ttl"])
 
     # Decide which cache file to use, if any.
-    cache_file: typing.Optional[str]
+    cache_file: typing.Optional[pathlib.Path]
     if isinstance(config["cache"], str):
-        cache_file = config["cache"]
+        cache_file = pathlib.Path(config["cache"])
     elif config["cache"] == True:
         cache_file = platform.default_cache_filename
     else:
@@ -322,14 +325,14 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
     if args.force and cache_file is not None:
         logger.debug("Wiping cache due to --force.")
         try:
-            os.remove(cache_file)
+            cache_file.unlink(True)
         except OSError:
             pass
 
     # Load the cache file, if any.
     if cache_file is not None:
         try:
-            with open(cache_file, "r") as fp:
+            with cache_file.open("r") as fp:
                 cache = json.load(fp)
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -423,7 +426,7 @@ def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typ
 
         # Update the cache to remember that we did the update.
         if cache_file is not None:
-            with open(cache_file, "w") as fp:
+            with cache_file.open("w") as fp:
                 json.dump({"hostname": fqdn.to_text(), "addresses": addresses}, fp, ensure_ascii=False, allow_nan=False)
 
 
@@ -437,7 +440,7 @@ def main() -> None:
 
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(description="Dynamically update DNS records.")
-    parser.add_argument("-c", "--config", default=platform.default_config_filename, type=str, help=f"which configuration file to read (default: {platform.default_config_filename})", metavar="FILE")
+    parser.add_argument("-c", "--config", default=platform.default_config_filename, type=pathlib.Path, help=f"which configuration file to read (default: {platform.default_config_filename})", metavar="FILE")
     parser.add_argument("-f", "--force", action="store_true", help="update even if cache says unnecessary")
     parser.add_argument("interface", nargs="*", help="the name of an interface whose address(es) to register (default: all interfaces)")
     args = parser.parse_args()
