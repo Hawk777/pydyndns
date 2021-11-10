@@ -247,7 +247,7 @@ class IPv4(Family):
         return [x for x in addresses if isinstance(x, ipaddress.IPv4Address) and self.include_address(x)]
 
     def include_address(self, address: ipaddress.IPv4Address) -> bool:
-        return (address.is_private or address.is_global) and not address.is_link_local
+        return (address.is_private or address.is_global) and not address.is_link_local and not address.is_loopback
 
 
 class IPv6(Family):
@@ -278,7 +278,7 @@ class IPv6(Family):
     def include_address(self, address: ipaddress.IPv6Address) -> bool:
         if address.teredo is not None and not self._config["teredo"]:
             return False
-        return address.ipv4_mapped is None and (address.is_private or address.is_global) and not address.is_link_local
+        return address.ipv4_mapped is None and (address.is_private or address.is_global) and not address.is_link_local and not address.is_loopback
 
 
 def run(platform: Platform, args: argparse.Namespace, config: typing.Mapping[typing.Any, typing.Any], logger: logging.Logger) -> None:
