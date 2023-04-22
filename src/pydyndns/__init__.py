@@ -455,3 +455,4 @@ def main() -> None:
         raise
     except:
         logging.getLogger("pydyndns").error("Unhandled exception", exc_info=True)
+        sys.exit(1)
